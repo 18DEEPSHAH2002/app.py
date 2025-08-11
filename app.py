@@ -55,9 +55,9 @@ def load_data(sheet_id, gid="0"):
 
 # --- Main App Logic ---
 #
-# IMPORTANT: Replace "YOUR_SHEET_ID_HERE" with the ID from your Google Sheet URL
+# Your specific Google Sheet ID has been added here.
 #
-SHEET_ID = "YOUR_SHEET_ID_HERE" 
+SHEET_ID = "1lmN_fpYqk63Zq8P1cJMtFD_5UpVbGYXvTa5hU1G6eLM" 
 GID = "0" # The GID is usually "0" for the first sheet in a spreadsheet.
 
 # Load the data using the function
