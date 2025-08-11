@@ -55,10 +55,10 @@ def load_data(sheet_id, gid="0"):
 
 # --- Main App Logic ---
 #
-# Your specific Google Sheet ID has been added here.
+# Your specific Google Sheet ID and GID have been added here.
 #
 SHEET_ID = "1lmN_fpYqk63Zq8P1cJMtFD_5UpVbGYXvTa5hU1G6eLM" 
-GID = "0" # The GID is usually "0" for the first sheet in a spreadsheet.
+GID = "322810088" # This has been updated to point to your specific sheet.
 
 # Load the data using the function
 df = load_data(SHEET_ID, GID)
