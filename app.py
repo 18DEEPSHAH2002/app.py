@@ -107,41 +107,44 @@ if not df.empty:
 
     st.markdown("---")
 
-    # --- NEW: Upcoming Hearings Section ---
-    st.header("Upcoming Hearings (Next 14 Days)")
-    
-    # Define the date range
+    # Define today's date once
     today = pd.to_datetime('today').normalize()
-    two_weeks_from_now = today + timedelta(days=14)
 
-    # Filter for cases within the next 14 days
+    # --- Upcoming Hearings Section (Next 14 Days) ---
+    st.header("Upcoming Hearings (Next 14 Days)")
+    two_weeks_from_now = today + timedelta(days=14)
     upcoming_14_days_df = df_filtered[
         (df_filtered['next_hearing_date'] >= today) & 
         (df_filtered['next_hearing_date'] <= two_weeks_from_now)
     ].copy()
-
-    # Sort by the hearing date
     upcoming_14_days_df = upcoming_14_days_df.sort_values(by='next_hearing_date')
-    
-    # Format the date for better readability
-    upcoming_14_days_df['next_hearing_date'] = upcoming_14_days_df['next_hearing_date'].dt.strftime('%d-%b-%Y')
-
+    upcoming_14_days_df['next_hearing_date_formatted'] = upcoming_14_days_df['next_hearing_date'].dt.strftime('%d-%b-%Y')
 
     with st.expander(f"View {len(upcoming_14_days_df)} cases with hearings in the next 14 days", expanded=True):
-        if len(upcoming_14_days_df) > 0:
-            # Display the relevant columns in a table
+        if not upcoming_14_days_df.empty:
             st.dataframe(upcoming_14_days_df[[
-                'case_no',
-                'case_title', 
-                'supervisor_office', 
-                'court_name', 
-                'next_hearing_date'
-            ]], use_container_width=True)
+                'case_no', 'case_title', 'supervisor_office', 
+                'court_name', 'next_hearing_date_formatted'
+            ]].rename(columns={'next_hearing_date_formatted': 'Next Hearing Date'}), use_container_width=True)
         else:
             st.info("No cases have hearings scheduled in the next 14 days based on the current filters.")
 
-    st.markdown("---")
+    # --- All Upcoming Hearings Section ---
+    st.header("Complete List of All Upcoming Hearings")
+    all_upcoming_df = df_filtered[df_filtered['next_hearing_date'] >= today].copy()
+    all_upcoming_df = all_upcoming_df.sort_values(by='next_hearing_date')
+    all_upcoming_df['next_hearing_date_formatted'] = all_upcoming_df['next_hearing_date'].dt.strftime('%d-%b-%Y')
 
+    with st.expander(f"View all {len(all_upcoming_df)} upcoming cases", expanded=False):
+        if not all_upcoming_df.empty:
+            st.dataframe(all_upcoming_df[[
+                'case_no', 'case_title', 'supervisor_office', 
+                'court_name', 'next_hearing_date_formatted'
+            ]].rename(columns={'next_hearing_date_formatted': 'Next Hearing Date'}), use_container_width=True)
+        else:
+            st.info("No upcoming hearings found based on the current filters.")
+
+    st.markdown("---")
 
     # --- Visualizations ---
     st.header("Overall Visual Analytics")
