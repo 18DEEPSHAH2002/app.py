@@ -131,6 +131,7 @@ if not df.empty:
         if len(upcoming_14_days_df) > 0:
             # Display the relevant columns in a table
             st.dataframe(upcoming_14_days_df[[
+                'case_no',
                 'case_title', 
                 'supervisor_office', 
                 'court_name', 
