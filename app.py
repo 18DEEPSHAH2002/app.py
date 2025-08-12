@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- Page Configuration ---
 # Sets the title and icon that appear in the browser tab
@@ -97,18 +97,53 @@ if not df.empty:
     total_cases = df_filtered.shape[0]
     pending_cases = df_filtered[df_filtered["case_status"] == "Pending"].shape[0]
     decided_cases = df_filtered[df_filtered["case_status"] == "Decided"].shape[0]
-    upcoming_hearings = df_filtered[df_filtered['next_hearing_date'] > datetime.now()].shape[0]
+    upcoming_hearings_total = df_filtered[df_filtered['next_hearing_date'] > datetime.now()].shape[0]
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Total Cases", f"{total_cases}")
     col2.metric("Pending Cases", f"{pending_cases}")
     col3.metric("Decided Cases", f"{decided_cases}")
-    col4.metric("Upcoming Hearings", f"{upcoming_hearings}")
+    col4.metric("Total Upcoming Hearings", f"{upcoming_hearings_total}")
 
     st.markdown("---")
 
+    # --- NEW: Upcoming Hearings Section ---
+    st.header("Upcoming Hearings (Next 14 Days)")
+    
+    # Define the date range
+    today = pd.to_datetime('today').normalize()
+    two_weeks_from_now = today + timedelta(days=14)
+
+    # Filter for cases within the next 14 days
+    upcoming_14_days_df = df_filtered[
+        (df_filtered['next_hearing_date'] >= today) & 
+        (df_filtered['next_hearing_date'] <= two_weeks_from_now)
+    ].copy()
+
+    # Sort by the hearing date
+    upcoming_14_days_df = upcoming_14_days_df.sort_values(by='next_hearing_date')
+    
+    # Format the date for better readability
+    upcoming_14_days_df['next_hearing_date'] = upcoming_14_days_df['next_hearing_date'].dt.strftime('%d-%b-%Y')
+
+
+    with st.expander(f"View {len(upcoming_14_days_df)} cases with hearings in the next 14 days", expanded=True):
+        if len(upcoming_14_days_df) > 0:
+            # Display the relevant columns in a table
+            st.dataframe(upcoming_14_days_df[[
+                'case_title', 
+                'supervisor_office', 
+                'court_name', 
+                'next_hearing_date'
+            ]], use_container_width=True)
+        else:
+            st.info("No cases have hearings scheduled in the next 14 days based on the current filters.")
+
+    st.markdown("---")
+
+
     # --- Visualizations ---
-    st.header("Visual Analytics")
+    st.header("Overall Visual Analytics")
     col1, col2 = st.columns(2)
 
     with col1:
