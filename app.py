@@ -93,6 +93,69 @@ if not df.empty:
         "supervisor_office == @supervisor_office & case_status == @case_status & court_name == @court_name"
     )
 
+    # --- Interactive Calendar in Sidebar ---
+    st.sidebar.header("Interactive Hearing Calendar")
+
+    # Initialize session state for calendar navigation
+    if 'view_date' not in st.session_state:
+        st.session_state.view_date = datetime.today()
+    if 'selected_date' not in st.session_state:
+        st.session_state.selected_date = None
+
+    # Calendar navigation
+    nav_cols = st.sidebar.columns([1, 2, 1])
+    if nav_cols[0].button("⬅️"):
+        st.session_state.view_date = st.session_state.view_date - timedelta(days=30)
+    
+    nav_cols[1].write(st.session_state.view_date.strftime("%b %Y"))
+
+    if nav_cols[2].button("➡️"):
+        st.session_state.view_date = st.session_state.view_date + timedelta(days=30)
+
+    # Get calendar data
+    year = st.session_state.view_date.year
+    month = st.session_state.view_date.month
+    cal = calendar.monthcalendar(year, month)
+    
+    # Get set of dates with hearings for quick lookup
+    hearing_dates_in_month = set(df_filtered[
+        (df_filtered['next_hearing_date'].dt.year == year) &
+        (df_filtered['next_hearing_date'].dt.month == month)
+    ]['next_hearing_date'].dt.date)
+
+    # Display calendar
+    day_cols = st.sidebar.columns(7)
+    days = ["M", "T", "W", "T", "F", "S", "S"]
+    for i, day_name in enumerate(days):
+        day_cols[i].write(f"**{day_name}**")
+
+    for week in cal:
+        week_cols = st.sidebar.columns(7)
+        for i, day_num in enumerate(week):
+            if day_num == 0:
+                week_cols[i].write("")
+            else:
+                current_date = datetime(year, month, day_num).date()
+                has_hearing = current_date in hearing_dates_in_month
+                button_type = "primary" if has_hearing else "secondary"
+                
+                if week_cols[i].button(str(day_num), key=f"day_{year}_{month}_{day_num}", type=button_type, use_container_width=True):
+                    st.session_state.selected_date = current_date
+    
+
+    # --- Main Page Content ---
+    
+    # --- Display cases for selected date from calendar ---
+    if st.session_state.selected_date:
+        st.header(f"Cases with Hearing on {st.session_state.selected_date.strftime('%d-%b-%Y')}")
+        cases_on_date = df_filtered[df_filtered['next_hearing_date'].dt.date == st.session_state.selected_date]
+        
+        if not cases_on_date.empty:
+            st.dataframe(cases_on_date[['case_no', 'case_title', 'supervisor_office', 'court_name']], use_container_width=True)
+        else:
+            st.info(f"No cases found with a hearing on {st.session_state.selected_date.strftime('%d-%b-%Y')}.")
+        st.markdown("---")
+
     # --- Key Metrics (KPIs) ---
     st.header("Key Metrics")
     total_cases = df_filtered.shape[0]
@@ -108,68 +171,6 @@ if not df.empty:
 
     st.markdown("---")
     
-    # --- Interactive Calendar ---
-    st.header("Interactive Hearing Calendar")
-
-    # Initialize session state for calendar navigation
-    if 'view_date' not in st.session_state:
-        st.session_state.view_date = datetime.today()
-    if 'selected_date' not in st.session_state:
-        st.session_state.selected_date = None
-
-    # Calendar navigation
-    nav_cols = st.columns([1, 2, 1])
-    if nav_cols[0].button("⬅️ Previous Month"):
-        st.session_state.view_date = st.session_state.view_date - timedelta(days=30)
-    
-    nav_cols[1].subheader(st.session_state.view_date.strftime("%B %Y"))
-
-    if nav_cols[2].button("Next Month ➡️"):
-        st.session_state.view_date = st.session_state.view_date + timedelta(days=30)
-
-    # Get calendar data
-    year = st.session_state.view_date.year
-    month = st.session_state.view_date.month
-    cal = calendar.monthcalendar(year, month)
-    
-    # Get set of dates with hearings for quick lookup
-    hearing_dates_in_month = set(df_filtered[
-        (df_filtered['next_hearing_date'].dt.year == year) &
-        (df_filtered['next_hearing_date'].dt.month == month)
-    ]['next_hearing_date'].dt.date)
-
-    # Display calendar
-    day_cols = st.columns(7)
-    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    for i, day_name in enumerate(days):
-        day_cols[i].write(f"**{day_name}**")
-
-    for week in cal:
-        week_cols = st.columns(7)
-        for i, day_num in enumerate(week):
-            if day_num == 0:
-                week_cols[i].write("")
-            else:
-                current_date = datetime(year, month, day_num).date()
-                has_hearing = current_date in hearing_dates_in_month
-                button_type = "primary" if has_hearing else "secondary"
-                
-                if week_cols[i].button(str(day_num), key=f"day_{year}_{month}_{day_num}", type=button_type, use_container_width=True):
-                    st.session_state.selected_date = current_date
-    
-    st.markdown("---")
-
-    # --- Display cases for selected date from calendar ---
-    if st.session_state.selected_date:
-        st.header(f"Cases with Hearing on {st.session_state.selected_date.strftime('%d-%b-%Y')}")
-        cases_on_date = df_filtered[df_filtered['next_hearing_date'].dt.date == st.session_state.selected_date]
-        
-        if not cases_on_date.empty:
-            st.dataframe(cases_on_date[['case_no', 'case_title', 'supervisor_office', 'court_name']], use_container_width=True)
-        else:
-            st.info(f"No cases found with a hearing on {st.session_state.selected_date.strftime('%d-%b-%Y')}.")
-        st.markdown("---")
-
     # Define today's date once
     today = pd.to_datetime('today').normalize()
 
