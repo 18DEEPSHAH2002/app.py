@@ -86,6 +86,10 @@ if not df.empty:
         options=df["court_name"].unique(),
         default=df["court_name"].unique()
     )
+    
+    # --- NEW: Calendar Date Selector ---
+    selected_date = st.sidebar.date_input("Select a Hearing Date to Filter Cases", value=None)
+
 
     # Filter the DataFrame based on the user's selections
     df_filtered = df.query(
@@ -106,6 +110,21 @@ if not df.empty:
     col4.metric("Total Upcoming Hearings", f"{upcoming_hearings_total}")
 
     st.markdown("---")
+
+    # --- NEW: Display cases for selected date ---
+    if selected_date:
+        st.header(f"Cases with Hearing on {selected_date.strftime('%d-%b-%Y')}")
+        # We compare the date part of the 'next_hearing_date' with the selected_date
+        cases_on_date = df_filtered[df_filtered['next_hearing_date'].dt.date == selected_date]
+        
+        if not cases_on_date.empty:
+            st.dataframe(cases_on_date[[
+                'case_no', 'case_title', 'supervisor_office', 'court_name'
+            ]], use_container_width=True)
+        else:
+            st.info(f"No cases found with a hearing on {selected_date.strftime('%d-%b-%Y')}.")
+        st.markdown("---")
+
 
     # Define today's date once
     today = pd.to_datetime('today').normalize()
