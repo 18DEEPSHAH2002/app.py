@@ -36,8 +36,9 @@ def load_data(sheet_id, gid="0"):
         df['court_name'] = df['court_name'].replace(court_replacements)
         df['next_hearing_date'] = pd.to_datetime(df['next_hearing_date'], errors='coerce')
         df['supervisor_office'] = df['supervisor_office'].fillna('Not Assigned')
-        # Create month-year column for easier grouping
+        # Create month-year and date columns for easier grouping
         df['hearing_month'] = df['next_hearing_date'].dt.to_period('M').astype(str)
+        df['hearing_date'] = df['next_hearing_date'].dt.strftime('%Y-%m-%d')
         return df
     except Exception as e:
         st.error(f"Error loading data from Google Sheet: {e}")
@@ -163,29 +164,31 @@ if not df.empty:
             st.session_state.selected_month = None
             st.session_state.selected_department = None
 
-    # Level 4: Show all hearing dates for the selected department
+    # Level 4: Show daily breakdown graph for the selected department
     if st.session_state.selected_court and st.session_state.selected_month and st.session_state.selected_department:
         st.markdown("---")
-        st.subheader(f"Level 4: All Hearing Dates for {st.session_state.selected_department} in {st.session_state.selected_month}")
+        st.subheader(f"Level 4: Daily Case Distribution for {st.session_state.selected_department} in {st.session_state.selected_month}")
 
         # Filter data for the specific selections
-        filtered_dates_df = df[
+        daily_df = df[
             (df['court_name'] == st.session_state.selected_court) &
             (df['hearing_month'] == st.session_state.selected_month) &
             (df['supervisor_office'] == st.session_state.selected_department)
         ].copy()
 
-        # Get unique dates and sort them
-        all_hearing_dates = filtered_dates_df['next_hearing_date'].dropna().dt.date.unique()
-        all_hearing_dates.sort()
+        # Group by date and count cases
+        daily_counts = daily_df['hearing_date'].value_counts().sort_index().reset_index()
+        daily_counts.columns = ['Date', 'Number of Cases']
 
-        if len(all_hearing_dates) > 0:
-            st.write(f"The following hearing dates are scheduled for **{st.session_state.selected_department}** in **{st.session_state.selected_month}**:")
-            # Format dates for display
-            display_dates = [d.strftime('%d-%b-%Y') for d in all_hearing_dates]
-            # Create a dataframe for better presentation
-            dates_df = pd.DataFrame(display_dates, columns=["Hearing Date"])
-            st.dataframe(dates_df, use_container_width=True)
+        if not daily_counts.empty:
+            fig_daily = px.bar(
+                daily_counts,
+                x='Date',
+                y='Number of Cases',
+                title=f"<b>Daily Cases for {st.session_state.selected_department} in {st.session_state.selected_month}</b>",
+                color_discrete_sequence=px.colors.qualitative.Bold
+            )
+            st.plotly_chart(fig_daily, use_container_width=True)
         else:
             st.info("No specific hearing dates found for this selection.")
 
