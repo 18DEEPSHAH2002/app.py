@@ -125,16 +125,55 @@ def render_dashboard_page(df):
     case_status = st.sidebar.multiselect(
         "Select Case Status", options=df["case_status"].unique(), default=df["case_status"].unique()
     )
-    court_name = st.sidebar.multiselect(
+    court_name_filter = st.sidebar.multiselect(
         "Select Court", options=df["court_name"].unique(), default=df["court_name"].unique()
     )
     
     df_filtered = df.query(
-        "supervisor_office == @supervisor_office & case_status == @case_status & court_name == @court_name"
+        "supervisor_office == @supervisor_office & case_status == @case_status & court_name == @court_name_filter"
     )
 
     # --- Main Page Content ---
     today = pd.to_datetime('today').normalize()
+    
+    # --- NEW: Interactive Drill-Down Chart ---
+    st.header("Interactive Court Analytics")
+
+    # Top-level chart: Cases by Court
+    cases_by_court = df_filtered['court_name'].value_counts().reset_index()
+    cases_by_court.columns = ['Court', 'Number of Cases']
+    fig_court_main = px.bar(
+        cases_by_court, 
+        x='Court', 
+        y='Number of Cases', 
+        title='<b>Total Cases by Court</b>',
+        color_discrete_sequence=['#33A1C9']
+    )
+    st.plotly_chart(fig_court_main, use_container_width=True)
+
+    # Drill-down selection
+    court_options = ['-- Select a court to see monthly breakdown --'] + list(cases_by_court['Court'])
+    selected_court = st.selectbox("Select a Court to Drill Down", options=court_options)
+
+    # Second-level chart: Monthly breakdown
+    if selected_court != '-- Select a court to see monthly breakdown --':
+        st.subheader(f"Monthly Case Distribution for: {selected_court}")
+        
+        monthly_df = df_filtered[df_filtered['court_name'] == selected_court].copy()
+        monthly_df['month'] = monthly_df['next_hearing_date'].dt.to_period('M').astype(str)
+        
+        monthly_counts = monthly_df['month'].value_counts().sort_index().reset_index()
+        monthly_counts.columns = ['Month', 'Number of Cases']
+        
+        fig_monthly = px.bar(
+            monthly_counts,
+            x='Month',
+            y='Number of Cases',
+            title=f"<b>Cases in {selected_court} by Month</b>"
+        )
+        st.plotly_chart(fig_monthly, use_container_width=True)
+
+    st.markdown("---")
     
     st.header("Upcoming Hearings (Next 14 Days)")
     two_weeks_from_now = today + timedelta(days=14)
@@ -156,26 +195,6 @@ def render_dashboard_page(df):
             st.dataframe(all_upcoming_df[['case_no', 'case_title', 'supervisor_office', 'court_name', 'next_hearing_date_formatted']].rename(columns={'next_hearing_date_formatted': 'Next Hearing Date'}), use_container_width=True)
         else:
             st.info("No upcoming hearings found.")
-
-    st.markdown("---")
-    st.header("Overall Visual Analytics")
-    col1, col2 = st.columns(2)
-    with col1:
-        cases_by_supervisor = df_filtered['supervisor_office'].value_counts().reset_index()
-        cases_by_supervisor.columns = ['Supervisor Office', 'Number of Cases']
-        fig_supervisor = px.bar(cases_by_supervisor, x='Supervisor Office', y='Number of Cases', title='<b>Cases per Supervisor Office</b>', color_discrete_sequence=px.colors.qualitative.Pastel, template='plotly_white')
-        st.plotly_chart(fig_supervisor, use_container_width=True)
-    with col2:
-        status_counts = df_filtered['case_status'].value_counts().reset_index()
-        status_counts.columns = ['Case Status', 'Count']
-        fig_status = px.pie(status_counts, names='Case Status', values='Count', title='<b>Case Status Distribution</b>', hole=0.4, color_discrete_sequence=px.colors.qualitative.Set2)
-        fig_status.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig_status, use_container_width=True)
-
-    cases_by_court = df_filtered['court_name'].value_counts().reset_index()
-    cases_by_court.columns = ['Court', 'Number of Cases']
-    fig_court = px.bar(cases_by_court, x='Number of Cases', y='Court', orientation='h', title='<b>Cases by Court</b>', color_discrete_sequence=['#33A1C9'], template='plotly_white')
-    st.plotly_chart(fig_court, use_container_width=True)
 
     st.markdown("---")
     st.header("Detailed Case Data")
