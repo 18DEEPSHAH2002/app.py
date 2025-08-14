@@ -55,8 +55,6 @@ if 'selected_court' not in st.session_state:
     st.session_state.selected_court = None
 if 'selected_month' not in st.session_state:
     st.session_state.selected_month = None
-if 'selected_department' not in st.session_state:
-    st.session_state.selected_department = None
 
 st.title("⚖️ Court Cases Analysis Dashboard")
 st.markdown("An interactive dashboard for the DC Office, Ludhiana, with multi-level case analysis.")
@@ -82,25 +80,26 @@ if not df.empty:
 
     # Level 1: Cases by Court
     st.subheader("Level 1: Case Distribution by Court")
-    cases_by_court = df['court_name'].value_counts().reset_index()
-    cases_by_court.columns = ['Court', 'Number of Cases']
+    cases_by_court = df.groupby(['court_name', 'case_status']).size().reset_index(name='Number of Cases')
     fig_court_main = px.bar(
         cases_by_court, 
-        x='Court', 
+        x='court_name', 
         y='Number of Cases', 
-        title='<b>Total Cases by Court</b>',
-        color_discrete_sequence=px.colors.qualitative.Pastel1
+        color='case_status',
+        title='<b>Total Cases by Court (Stacked by Status)</b>',
+        labels={'court_name': 'Court', 'case_status': 'Case Status'},
+        color_discrete_map={'Pending': '#EF553B', 'Decided': '#636EFA'}
     )
     st.plotly_chart(fig_court_main, use_container_width=True)
 
     # Create buttons for each court to enable drill-down
     st.write("Click a court to see the monthly breakdown:")
-    court_cols = st.columns(len(cases_by_court))
-    for i, court_name in enumerate(cases_by_court['Court']):
+    court_names = df['court_name'].unique()
+    court_cols = st.columns(len(court_names))
+    for i, court_name in enumerate(court_names):
         if court_cols[i].button(court_name, key=f"court_{court_name}"):
             st.session_state.selected_court = court_name
             st.session_state.selected_month = None
-            st.session_state.selected_department = None
     
     # Level 2: Monthly breakdown for a selected court
     if st.session_state.selected_court:
@@ -108,29 +107,29 @@ if not df.empty:
         st.subheader(f"Level 2: Monthly Breakdown for {st.session_state.selected_court}")
 
         monthly_df = df[df['court_name'] == st.session_state.selected_court].copy()
-        monthly_counts = monthly_df['hearing_month'].value_counts().sort_index().reset_index()
-        monthly_counts.columns = ['Month', 'Number of Cases']
+        monthly_counts = monthly_df.groupby(['hearing_month', 'case_status']).size().reset_index(name='Number of Cases')
         
         fig_monthly = px.bar(
             monthly_counts,
-            x='Month',
+            x='hearing_month',
             y='Number of Cases',
+            color='case_status',
             title=f"<b>Monthly Case Distribution for {st.session_state.selected_court}</b>",
-            color_discrete_sequence=px.colors.qualitative.Pastel2
+            labels={'hearing_month': 'Month', 'case_status': 'Case Status'},
+            color_discrete_map={'Pending': '#EF553B', 'Decided': '#636EFA'}
         )
         st.plotly_chart(fig_monthly, use_container_width=True)
         
         st.write("Click a month to see the department breakdown:")
-        month_cols = st.columns(min(len(monthly_counts), 12)) # Avoid too many columns
-        for i, month_name in enumerate(monthly_counts['Month']):
+        month_names = monthly_df['hearing_month'].unique()
+        month_cols = st.columns(min(len(month_names), 12)) 
+        for i, month_name in enumerate(month_names):
             if month_cols[i % 12].button(month_name, key=f"month_{month_name}"):
                 st.session_state.selected_month = month_name
-                st.session_state.selected_department = None
 
         if st.button("Clear Court Selection"):
             st.session_state.selected_court = None
             st.session_state.selected_month = None
-            st.session_state.selected_department = None
 
 
     # Level 3: Department breakdown for a selected month and court
@@ -142,56 +141,22 @@ if not df.empty:
             (df['court_name'] == st.session_state.selected_court) & 
             (df['hearing_month'] == st.session_state.selected_month)
         ].copy()
-        department_counts = department_df['supervisor_office'].value_counts().reset_index()
-        department_counts.columns = ['Department', 'Number of Cases']
+        department_counts = department_df.groupby(['supervisor_office', 'case_status']).size().reset_index(name='Number of Cases')
 
         fig_department = px.bar(
             department_counts,
-            x='Department',
+            x='supervisor_office',
             y='Number of Cases',
+            color='case_status',
             title=f"<b>Department Cases in {st.session_state.selected_court} for {st.session_state.selected_month}</b>",
-            color_discrete_sequence=px.colors.qualitative.Set3
+            labels={'supervisor_office': 'Department', 'case_status': 'Case Status'},
+            color_discrete_map={'Pending': '#EF553B', 'Decided': '#636EFA'}
         )
         st.plotly_chart(fig_department, use_container_width=True)
 
-        st.write("Click a department to see its case details:")
-        dept_cols = st.columns(min(len(department_counts), 8))
-        for i, dept_name in enumerate(department_counts['Department']):
-            if dept_cols[i % 8].button(dept_name, key=f"dept_{dept_name}"):
-                st.session_state.selected_department = dept_name
-
         if st.button("Clear Month Selection"):
             st.session_state.selected_month = None
-            st.session_state.selected_department = None
-
-    # Level 4: Show case details for the selected department
-    if st.session_state.selected_court and st.session_state.selected_month and st.session_state.selected_department:
-        st.markdown("---")
-        st.subheader(f"Level 4: Case Details for {st.session_state.selected_department} in {st.session_state.selected_month}")
-
-        # Filter data for the specific selections
-        case_details_df = df[
-            (df['court_name'] == st.session_state.selected_court) &
-            (df['hearing_month'] == st.session_state.selected_month) &
-            (df['supervisor_office'] == st.session_state.selected_department)
-        ].copy()
-
-        if not case_details_df.empty:
-            # Format the date for better readability
-            case_details_df['hearing_date_formatted'] = case_details_df['next_hearing_date'].dt.strftime('%d-%b-%Y')
-            
-            # Display the case details in a table
-            st.dataframe(
-                case_details_df[['case_no', 'case_title', 'hearing_date_formatted']].rename(
-                    columns={'hearing_date_formatted': 'Next Hearing Date'}
-                ),
-                use_container_width=True
-            )
-        else:
-            st.info("No cases found for this specific selection.")
-
-        if st.button("Clear Department Selection"):
-            st.session_state.selected_department = None
 
 else:
     st.warning("Could not load data. Please check the Google Sheet link and sharing permissions.")
+
