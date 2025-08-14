@@ -154,7 +154,7 @@ if not df.empty:
         )
         st.plotly_chart(fig_department, use_container_width=True)
 
-        st.write("Click a department to see its case status breakdown:")
+        st.write("Click a department to see its case details:")
         dept_cols = st.columns(min(len(department_counts), 8))
         for i, dept_name in enumerate(department_counts['Department']):
             if dept_cols[i % 8].button(dept_name, key=f"dept_{dept_name}"):
@@ -164,31 +164,31 @@ if not df.empty:
             st.session_state.selected_month = None
             st.session_state.selected_department = None
 
-    # Level 4: Show case status metrics for the selected department
+    # Level 4: Show case details for the selected department
     if st.session_state.selected_court and st.session_state.selected_month and st.session_state.selected_department:
         st.markdown("---")
-        st.subheader(f"Level 4: Case Status for {st.session_state.selected_department} in {st.session_state.selected_month}")
+        st.subheader(f"Level 4: Case Details for {st.session_state.selected_department} in {st.session_state.selected_month}")
 
         # Filter data for the specific selections
-        department_metrics_df = df[
+        case_details_df = df[
             (df['court_name'] == st.session_state.selected_court) &
             (df['hearing_month'] == st.session_state.selected_month) &
             (df['supervisor_office'] == st.session_state.selected_department)
         ].copy()
 
-        # Calculate metrics for the selection
-        total_dept_cases = len(department_metrics_df)
-        pending_dept_cases = len(department_metrics_df[department_metrics_df['case_status'] == 'Pending'])
-        decided_dept_cases = len(department_metrics_df[department_metrics_df['case_status'] == 'Decided'])
-
-        if total_dept_cases > 0:
-            metric_cols = st.columns(3)
-            metric_cols[0].metric("Total Cases", f"{total_dept_cases}")
-            metric_cols[1].metric("Pending Cases", f"{pending_dept_cases}")
-            metric_cols[2].metric("Decided Cases", f"{decided_dept_cases}")
+        if not case_details_df.empty:
+            # Format the date for better readability
+            case_details_df['hearing_date_formatted'] = case_details_df['next_hearing_date'].dt.strftime('%d-%b-%Y')
+            
+            # Display the case details in a table
+            st.dataframe(
+                case_details_df[['case_no', 'case_title', 'hearing_date_formatted']].rename(
+                    columns={'hearing_date_formatted': 'Next Hearing Date'}
+                ),
+                use_container_width=True
+            )
         else:
             st.info("No cases found for this specific selection.")
-
 
         if st.button("Clear Department Selection"):
             st.session_state.selected_department = None
