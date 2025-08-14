@@ -38,6 +38,7 @@ def load_data(sheet_id, gid="0"):
         df['supervisor_office'] = df['supervisor_office'].fillna('Not Assigned')
         # Create month-year column for easier grouping
         df['hearing_month'] = df['next_hearing_date'].dt.to_period('M').astype(str)
+        df['hearing_date'] = df['next_hearing_date'].dt.date.astype(str)
         return df
     except Exception as e:
         st.error(f"Error loading data from Google Sheet: {e}")
@@ -54,6 +55,8 @@ if 'selected_court' not in st.session_state:
     st.session_state.selected_court = None
 if 'selected_month' not in st.session_state:
     st.session_state.selected_month = None
+if 'selected_department' not in st.session_state:
+    st.session_state.selected_department = None
 
 st.title("⚖️ Court Cases Analysis Dashboard")
 st.markdown("An interactive dashboard for the DC Office, Ludhiana, with multi-level case analysis.")
@@ -96,7 +99,8 @@ if not df.empty:
     for i, court_name in enumerate(cases_by_court['Court']):
         if court_cols[i].button(court_name, key=f"court_{court_name}"):
             st.session_state.selected_court = court_name
-            st.session_state.selected_month = None # Reset month selection
+            st.session_state.selected_month = None
+            st.session_state.selected_department = None
     
     # Level 2: Monthly breakdown for a selected court
     if st.session_state.selected_court:
@@ -116,16 +120,17 @@ if not df.empty:
         )
         st.plotly_chart(fig_monthly, use_container_width=True)
         
-        # Create buttons for each month
         st.write("Click a month to see the department breakdown:")
-        month_cols = st.columns(len(monthly_counts))
+        month_cols = st.columns(min(len(monthly_counts), 12)) # Avoid too many columns
         for i, month_name in enumerate(monthly_counts['Month']):
-            if month_cols[i].button(month_name, key=f"month_{month_name}"):
+            if month_cols[i % 12].button(month_name, key=f"month_{month_name}"):
                 st.session_state.selected_month = month_name
+                st.session_state.selected_department = None
 
         if st.button("Clear Court Selection"):
             st.session_state.selected_court = None
             st.session_state.selected_month = None
+            st.session_state.selected_department = None
 
 
     # Level 3: Department breakdown for a selected month and court
@@ -149,8 +154,40 @@ if not df.empty:
         )
         st.plotly_chart(fig_department, use_container_width=True)
 
+        st.write("Click a department to see the daily breakdown:")
+        dept_cols = st.columns(min(len(department_counts), 8))
+        for i, dept_name in enumerate(department_counts['Department']):
+            if dept_cols[i % 8].button(dept_name, key=f"dept_{dept_name}"):
+                st.session_state.selected_department = dept_name
+
         if st.button("Clear Month Selection"):
             st.session_state.selected_month = None
+            st.session_state.selected_department = None
+
+    # Level 4: Daily breakdown for selected department, month, and court
+    if st.session_state.selected_court and st.session_state.selected_month and st.session_state.selected_department:
+        st.markdown("---")
+        st.subheader(f"Level 4: Daily Breakdown for {st.session_state.selected_department} in {st.session_state.selected_month}")
+        
+        daily_df = df[
+            (df['court_name'] == st.session_state.selected_court) & 
+            (df['hearing_month'] == st.session_state.selected_month) &
+            (df['supervisor_office'] == st.session_state.selected_department)
+        ].copy()
+        daily_counts = daily_df['hearing_date'].value_counts().sort_index().reset_index()
+        daily_counts.columns = ['Date', 'Number of Cases']
+
+        fig_daily = px.bar(
+            daily_counts,
+            x='Date',
+            y='Number of Cases',
+            title=f"<b>Daily Cases for {st.session_state.selected_department} in {st.session_state.selected_month}</b>",
+            color_discrete_sequence=px.colors.qualitative.Bold
+        )
+        st.plotly_chart(fig_daily, use_container_width=True)
+
+        if st.button("Clear Department Selection"):
+            st.session_state.selected_department = None
 
 else:
     st.warning("Could not load data. Please check the Google Sheet link and sharing permissions.")
