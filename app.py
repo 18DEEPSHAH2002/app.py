@@ -49,6 +49,12 @@ SHEET_ID = "1lmN_fpYqk63Zq8P1cJMtFD_5UpVbGYXvTa5hU1G6eLM"
 GID = "322810088"
 df = load_data(SHEET_ID, GID)
 
+# Initialize session state for selections
+if 'selected_court' not in st.session_state:
+    st.session_state.selected_court = None
+if 'selected_month' not in st.session_state:
+    st.session_state.selected_month = None
+
 st.title("⚖️ Court Cases Analysis Dashboard")
 st.markdown("An interactive dashboard for the DC Office, Ludhiana, with multi-level case analysis.")
 st.markdown("---")
@@ -84,13 +90,20 @@ if not df.empty:
     )
     st.plotly_chart(fig_court_main, use_container_width=True)
 
+    # Create buttons for each court to enable drill-down
+    st.write("Click a court to see the monthly breakdown:")
+    court_cols = st.columns(len(cases_by_court))
+    for i, court_name in enumerate(cases_by_court['Court']):
+        if court_cols[i].button(court_name, key=f"court_{court_name}"):
+            st.session_state.selected_court = court_name
+            st.session_state.selected_month = None # Reset month selection
+    
     # Level 2: Monthly breakdown for a selected court
-    st.subheader("Level 2: Monthly Breakdown by Court")
-    court_options = ['-- Select a court to see monthly breakdown --'] + list(cases_by_court['Court'])
-    selected_court = st.selectbox("Select a Court to analyze:", options=court_options, key="court_select")
+    if st.session_state.selected_court:
+        st.markdown("---")
+        st.subheader(f"Level 2: Monthly Breakdown for {st.session_state.selected_court}")
 
-    if selected_court != '-- Select a court to see monthly breakdown --':
-        monthly_df = df[df['court_name'] == selected_court].copy()
+        monthly_df = df[df['court_name'] == st.session_state.selected_court].copy()
         monthly_counts = monthly_df['hearing_month'].value_counts().sort_index().reset_index()
         monthly_counts.columns = ['Month', 'Number of Cases']
         
@@ -98,29 +111,46 @@ if not df.empty:
             monthly_counts,
             x='Month',
             y='Number of Cases',
-            title=f"<b>Monthly Case Distribution for {selected_court}</b>",
+            title=f"<b>Monthly Case Distribution for {st.session_state.selected_court}</b>",
             color_discrete_sequence=px.colors.qualitative.Pastel2
         )
         st.plotly_chart(fig_monthly, use_container_width=True)
+        
+        # Create buttons for each month
+        st.write("Click a month to see the department breakdown:")
+        month_cols = st.columns(len(monthly_counts))
+        for i, month_name in enumerate(monthly_counts['Month']):
+            if month_cols[i].button(month_name, key=f"month_{month_name}"):
+                st.session_state.selected_month = month_name
 
-        # Level 3: Department breakdown for a selected month and court
-        st.subheader("Level 3: Department Breakdown by Month")
-        month_options = ['-- Select a month to see department breakdown --'] + list(monthly_counts['Month'])
-        selected_month = st.selectbox("Select a Month to analyze:", options=month_options, key="month_select")
+        if st.button("Clear Court Selection"):
+            st.session_state.selected_court = None
+            st.session_state.selected_month = None
 
-        if selected_month != '-- Select a month to see department breakdown --':
-            department_df = monthly_df[monthly_df['hearing_month'] == selected_month].copy()
-            department_counts = department_df['supervisor_office'].value_counts().reset_index()
-            department_counts.columns = ['Department', 'Number of Cases']
 
-            fig_department = px.bar(
-                department_counts,
-                x='Department',
-                y='Number of Cases',
-                title=f"<b>Department Cases in {selected_court} for {selected_month}</b>",
-                color_discrete_sequence=px.colors.qualitative.Set3
-            )
-            st.plotly_chart(fig_department, use_container_width=True)
+    # Level 3: Department breakdown for a selected month and court
+    if st.session_state.selected_court and st.session_state.selected_month:
+        st.markdown("---")
+        st.subheader(f"Level 3: Department Breakdown for {st.session_state.selected_court} in {st.session_state.selected_month}")
+        
+        department_df = df[
+            (df['court_name'] == st.session_state.selected_court) & 
+            (df['hearing_month'] == st.session_state.selected_month)
+        ].copy()
+        department_counts = department_df['supervisor_office'].value_counts().reset_index()
+        department_counts.columns = ['Department', 'Number of Cases']
+
+        fig_department = px.bar(
+            department_counts,
+            x='Department',
+            y='Number of Cases',
+            title=f"<b>Department Cases in {st.session_state.selected_court} for {st.session_state.selected_month}</b>",
+            color_discrete_sequence=px.colors.qualitative.Set3
+        )
+        st.plotly_chart(fig_department, use_container_width=True)
+
+        if st.button("Clear Month Selection"):
+            st.session_state.selected_month = None
 
 else:
     st.warning("Could not load data. Please check the Google Sheet link and sharing permissions.")
