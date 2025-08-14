@@ -50,7 +50,7 @@ SHEET_ID = "1lmN_fpYqk63Zq8P1cJMtFD_5UpVbGYXvTa5hU1G6eLM"
 GID = "322810088"
 df = load_data(SHEET_ID, GID)
 
-# Initialize session state for selections
+
 if 'selected_court' not in st.session_state:
     st.session_state.selected_court = None
 if 'selected_month' not in st.session_state:
@@ -159,7 +159,7 @@ if not df.empty:
 
     
     st.markdown("---")
-    st.header("Full Case Data with Color Coding")
+    st.header("Full Case Data with Color Coding the red for pending , green for decided , yellow for upcoming cases ")
 
     def highlight_status(row):
         """Applies color coding to rows based on case status and hearing date."""
