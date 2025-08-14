@@ -157,6 +157,24 @@ if not df.empty:
         if st.button("Clear Month Selection"):
             st.session_state.selected_month = None
 
+    # --- Full Data Table with Color Coding ---
+    st.markdown("---")
+    st.header("Full Case Data with Color Coding")
+
+    def highlight_status(row):
+        """Applies color coding to rows based on case status and hearing date."""
+        style = ''
+        if row['case_status'] == 'Decided':
+            style = 'background-color: #C8E6C9'  # Light Green
+        elif row['case_status'] == 'Pending':
+            if pd.notna(row['next_hearing_date']) and row['next_hearing_date'] > datetime.now():
+                style = 'background-color: #FFF9C4'  # Light Yellow
+            else:
+                style = 'background-color: #FFCDD2'  # Light Red
+        return [style] * len(row)
+
+    styled_df = df.style.apply(highlight_status, axis=1)
+    st.dataframe(styled_df)
+
 else:
     st.warning("Could not load data. Please check the Google Sheet link and sharing permissions.")
-
