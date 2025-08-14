@@ -154,7 +154,7 @@ if not df.empty:
         )
         st.plotly_chart(fig_department, use_container_width=True)
 
-        st.write("Click a department to see the daily breakdown:")
+        st.write("Click a department to see its case status breakdown:")
         dept_cols = st.columns(min(len(department_counts), 8))
         for i, dept_name in enumerate(department_counts['Department']):
             if dept_cols[i % 8].button(dept_name, key=f"dept_{dept_name}"):
@@ -164,33 +164,31 @@ if not df.empty:
             st.session_state.selected_month = None
             st.session_state.selected_department = None
 
-    # Level 4: Show daily breakdown graph for the selected department
+    # Level 4: Show case status metrics for the selected department
     if st.session_state.selected_court and st.session_state.selected_month and st.session_state.selected_department:
         st.markdown("---")
-        st.subheader(f"Level 4: Daily Case Distribution for {st.session_state.selected_department} in {st.session_state.selected_month}")
+        st.subheader(f"Level 4: Case Status for {st.session_state.selected_department} in {st.session_state.selected_month}")
 
         # Filter data for the specific selections
-        daily_df = df[
+        department_metrics_df = df[
             (df['court_name'] == st.session_state.selected_court) &
             (df['hearing_month'] == st.session_state.selected_month) &
             (df['supervisor_office'] == st.session_state.selected_department)
         ].copy()
 
-        # Group by date and count cases
-        daily_counts = daily_df['hearing_date'].value_counts().sort_index().reset_index()
-        daily_counts.columns = ['Date', 'Number of Cases']
+        # Calculate metrics for the selection
+        total_dept_cases = len(department_metrics_df)
+        pending_dept_cases = len(department_metrics_df[department_metrics_df['case_status'] == 'Pending'])
+        decided_dept_cases = len(department_metrics_df[department_metrics_df['case_status'] == 'Decided'])
 
-        if not daily_counts.empty:
-            fig_daily = px.bar(
-                daily_counts,
-                x='Date',
-                y='Number of Cases',
-                title=f"<b>Daily Cases for {st.session_state.selected_department} in {st.session_state.selected_month}</b>",
-                color_discrete_sequence=px.colors.qualitative.Bold
-            )
-            st.plotly_chart(fig_daily, use_container_width=True)
+        if total_dept_cases > 0:
+            metric_cols = st.columns(3)
+            metric_cols[0].metric("Total Cases", f"{total_dept_cases}")
+            metric_cols[1].metric("Pending Cases", f"{pending_dept_cases}")
+            metric_cols[2].metric("Decided Cases", f"{decided_dept_cases}")
         else:
-            st.info("No specific hearing dates found for this selection.")
+            st.info("No cases found for this specific selection.")
+
 
         if st.button("Clear Department Selection"):
             st.session_state.selected_department = None
