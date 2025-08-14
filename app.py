@@ -3,14 +3,14 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 
-# --- Page Configuration ---
+# this is build by deep shah for  "DC SIR "
 st.set_page_config(
     page_title="Court Cases Dashboard",
     page_icon="⚖️",
     layout="wide",
 )
 
-# --- Data Loading and Cleaning from Google Sheets ---
+
 @st.cache_data(ttl=600)
 def load_data(sheet_id, gid="0"):
     """Loads and cleans data from a public Google Sheet."""
@@ -45,7 +45,7 @@ def load_data(sheet_id, gid="0"):
         st.error("Please make sure your Google Sheet is shared with 'Anyone with the link' as a 'Viewer'.")
         return pd.DataFrame()
 
-# --- Main App ---
+# if we want to change the  excel file , then we need to edit this 
 SHEET_ID = "1lmN_fpYqk63Zq8P1cJMtFD_5UpVbGYXvTa5hU1G6eLM" 
 GID = "322810088"
 df = load_data(SHEET_ID, GID)
@@ -61,7 +61,7 @@ st.markdown("An interactive dashboard for the DC Office, Ludhiana, with multi-le
 st.markdown("---")
 
 if not df.empty:
-    # --- Key Metrics ---
+    
     st.header("Overall Key Metrics")
     total_cases = df.shape[0]
     pending_cases = df[df["case_status"] == "Pending"].shape[0]
@@ -75,10 +75,10 @@ if not df.empty:
     col4.metric("Total Upcoming Hearings", f"{upcoming_hearings_total}")
     st.markdown("---")
 
-    # --- Interactive Drill-Down Section ---
+    
     st.header("Interactive Case Analysis")
 
-    # Level 1: Cases by Court
+    
     st.subheader("Level 1: Case Distribution by Court")
     cases_by_court = df.groupby(['court_name', 'case_status']).size().reset_index(name='Number of Cases')
     fig_court_main = px.bar(
@@ -92,7 +92,7 @@ if not df.empty:
     )
     st.plotly_chart(fig_court_main, use_container_width=True)
 
-    # Create buttons for each court to enable drill-down
+    
     st.write("Click a court to see the monthly breakdown:")
     court_names = df['court_name'].unique()
     court_cols = st.columns(len(court_names))
@@ -101,7 +101,7 @@ if not df.empty:
             st.session_state.selected_court = court_name
             st.session_state.selected_month = None
     
-    # Level 2: Monthly breakdown for a selected court
+    
     if st.session_state.selected_court:
         st.markdown("---")
         st.subheader(f"Level 2: Monthly Breakdown for {st.session_state.selected_court}")
@@ -132,7 +132,7 @@ if not df.empty:
             st.session_state.selected_month = None
 
 
-    # Level 3: Department breakdown for a selected month and court
+    
     if st.session_state.selected_court and st.session_state.selected_month:
         st.markdown("---")
         st.subheader(f"Level 3: Department Breakdown for {st.session_state.selected_court} in {st.session_state.selected_month}")
@@ -157,7 +157,7 @@ if not df.empty:
         if st.button("Clear Month Selection"):
             st.session_state.selected_month = None
 
-    # --- Full Data Table with Color Coding ---
+    
     st.markdown("---")
     st.header("Full Case Data with Color Coding")
 
@@ -165,7 +165,7 @@ if not df.empty:
         """Applies color coding to rows based on case status and hearing date."""
         style = ''
         if row['case_status'] == 'Decided':
-            style = 'background-color: #C8E6C9'  # Light Green
+            style = 'background-color: #C8E6C9'  # Light Green {if we want to change the color then just edit this code} 
         elif row['case_status'] == 'Pending':
             if pd.notna(row['next_hearing_date']) and row['next_hearing_date'] > datetime.now():
                 style = 'background-color: #FFF9C4'  # Light Yellow
