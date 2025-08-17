@@ -61,6 +61,7 @@ st.sidebar.title("Navigation")
 # Add the link to the external project
 st.sidebar.header("External Links")
 st.sidebar.markdown("[MLA Task](https://impwork-ghdnwmxdejainkmc8teidh.streamlit.app/)")
+st.sidebar.markdown("[Another Project](https://ztftw95hrzfbrate2mgg8l.streamlit.app/)")
 st.sidebar.markdown("---")
 
 
@@ -185,4 +186,4 @@ if not df.empty:
     st.dataframe(styled_df)
 
 else:
-    st.warning("Could not load data. Please check the Google Sheet link and sharing permissions.")
+    st.warning("Could not load data. Please check the Goo
