@@ -61,7 +61,7 @@ st.sidebar.title("Navigation")
 # Add the link to the external project
 st.sidebar.header("External Links")
 st.sidebar.markdown("[MLA Task](https://impwork-ghdnwmxdejainkmc8teidh.streamlit.app/)")
-st.sidebar.markdown("[weekly task](https://impwork-ghdnwmxdejainkmc8teidh.streamlit.app/)")
+st.sidebar.markdown("[weekly task](https://ztftw95hrzfbrate2mgg8l.streamlit.app/)")
 st.sidebar.markdown("---")
 
 
