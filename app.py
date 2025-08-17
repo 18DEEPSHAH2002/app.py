@@ -186,4 +186,4 @@ if not df.empty:
     st.dataframe(styled_df)
 
 else:
-    st.warning("Could not load data. Please check the Goo
+    st.warning("Could not load data. Please check ")
