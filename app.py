@@ -57,29 +57,29 @@ if 'selected_court' not in st.session_state:
 if 'selected_month' not in st.session_state:
     st.session_state.selected_month = None
 
-st.title("⚖️ Pending Court Cases Analysis")
-st.markdown("An interactive dashboard focusing on pending and upcoming cases for the DC Office, Ludhiana.")
+st.title("⚖️ Active Court Cases Analysis")
+st.markdown("An interactive dashboard focusing on all non-decided cases for the DC Office, Ludhiana.")
 st.markdown("---")
 
 if not df.empty:
-    # --- Create a DataFrame that ONLY contains pending cases for analysis ---
-    df_pending = df[df['case_status'] == 'Pending'].copy()
+    # --- Create a DataFrame that contains all cases EXCEPT decided ones ---
+    df_active = df[df['case_status'] != 'Decided'].copy()
 
     # --- Key Metrics ---
     st.header("Overall Key Metrics")
-    total_pending_cases = df_pending.shape[0]
-    upcoming_hearings_total = df_pending[df_pending['next_hearing_date'] > datetime.now()].shape[0]
+    total_active_cases = df_active.shape[0]
+    upcoming_hearings_total = df_active[df_active['next_hearing_date'] > datetime.now()].shape[0]
 
     col1, col2 = st.columns(2)
-    col1.metric("Total Pending Cases", f"{total_pending_cases}")
+    col1.metric("Total Active Cases", f"{total_active_cases}")
     col2.metric("Upcoming Hearings", f"{upcoming_hearings_total}")
     st.markdown("---")
 
     # --- Upcoming Tasks Section ---
     st.header("Upcoming Tasks / Actions Required")
-    action_needed_df = df_pending[
-        (df_pending['dc_action_needed'].str.strip().str.title() == 'Yes') &
-        (df_pending['next_hearing_date'] > datetime.now())
+    action_needed_df = df_active[
+        (df_active['dc_action_needed'].str.strip().str.title() == 'Yes') &
+        (df_active['next_hearing_date'] > datetime.now())
     ].copy()
 
     if not action_needed_df.empty:
@@ -107,14 +107,14 @@ if not df.empty:
     st.header("Interactive Case Analysis")
 
     # Level 1: Cases by Court
-    st.subheader("Level 1: Pending Case Distribution by Court")
-    cases_by_court = df_pending['court_name'].value_counts().reset_index()
+    st.subheader("Level 1: Active Case Distribution by Court")
+    cases_by_court = df_active['court_name'].value_counts().reset_index()
     cases_by_court.columns = ['Court', 'Number of Cases']
     fig_court_main = px.bar(
         cases_by_court, 
         x='Court', 
         y='Number of Cases', 
-        title='<b>Total Pending Cases by Court</b>',
+        title='<b>Total Active Cases by Court</b>',
         color_discrete_sequence=px.colors.qualitative.Pastel1
     )
     st.plotly_chart(fig_court_main, use_container_width=True)
@@ -134,7 +134,7 @@ if not df.empty:
         st.markdown("---")
         st.subheader(f"Level 2: Monthly Breakdown for {st.session_state.selected_court}")
 
-        monthly_df = df_pending[df_pending['court_name'] == st.session_state.selected_court].copy()
+        monthly_df = df_active[df_active['court_name'] == st.session_state.selected_court].copy()
         monthly_counts = monthly_df['hearing_month'].value_counts().sort_index().reset_index()
         monthly_counts.columns = ['Month', 'Number of Cases']
         
@@ -142,17 +142,21 @@ if not df.empty:
             monthly_counts,
             x='Month',
             y='Number of Cases',
-            title=f"<b>Monthly Pending Case Distribution for {st.session_state.selected_court}</b>",
+            title=f"<b>Monthly Active Case Distribution for {st.session_state.selected_court}</b>",
             labels={'Month': 'Month'}
         )
         st.plotly_chart(fig_monthly, use_container_width=True)
         
         st.write("Click a month to see the department breakdown:")
         month_names = monthly_df['hearing_month'].unique()
-        month_cols = st.columns(min(len(month_names), 12)) 
-        for i, month_name in enumerate(month_names):
-            if month_cols[i % 12].button(month_name, key=f"month_{month_name}"):
-                st.session_state.selected_month = month_name
+        
+        if len(month_names) > 0:
+            month_cols = st.columns(min(len(month_names), 12)) 
+            for i, month_name in enumerate(month_names):
+                if month_cols[i % 12].button(month_name, key=f"month_{month_name}"):
+                    st.session_state.selected_month = month_name
+        else:
+            st.info("No active cases with hearing dates found for the selected court.")
 
         if st.button("Clear Court Selection"):
             st.session_state.selected_court = None
@@ -164,9 +168,9 @@ if not df.empty:
         st.markdown("---")
         st.subheader(f"Level 3: Department Breakdown for {st.session_state.selected_court} in {st.session_state.selected_month}")
         
-        department_df = df_pending[
-            (df_pending['court_name'] == st.session_state.selected_court) & 
-            (df_pending['hearing_month'] == st.session_state.selected_month)
+        department_df = df_active[
+            (df_active['court_name'] == st.session_state.selected_court) & 
+            (df_active['hearing_month'] == st.session_state.selected_month)
         ].copy()
         department_counts = department_df['supervisor_office'].value_counts().reset_index()
         department_counts.columns = ['Department', 'Number of Cases']
@@ -185,7 +189,7 @@ if not df.empty:
 
     # --- Full Data Table with Color Coding ---
     st.markdown("---")
-    st.header("Full Pending Case Data with Color Coding")
+    st.header("Full Active Case Data with Color Coding")
 
     def highlight_status(row):
         """Applies color coding to rows based on hearing date."""
@@ -193,13 +197,13 @@ if not df.empty:
         if pd.notna(row['next_hearing_date']) and row['next_hearing_date'] > datetime.now():
             style = 'background-color: #FFF9C4'  # Light Yellow for upcoming
         else:
-            style = 'background-color: #FFCDD2'  # Light Red for past-due
+            style = 'background-color: #FFCDD2'  # Light Red for past-due or no date
         return [style] * len(row)
     
     # Rename column for better display in the final table
-    df_display = df_pending.rename(columns={'what_action_needed_to_be_taken_by_dc': 'Action Required'})
+    df_display = df_active.rename(columns={'what_action_needed_to_be_taken_by_dc': 'Action Required'})
     styled_df = df_display.style.apply(highlight_status, axis=1)
     st.dataframe(styled_df)
 
 else:
-    st.warning("Could not load data or no pending cases found. Please check the Google Sheet link and sharing permissions.")
+    st.warning("Could not load data or no active cases found. Please check the Google Sheet link and sharing permissions.")
