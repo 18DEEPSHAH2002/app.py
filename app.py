@@ -20,7 +20,7 @@ def load_data(sheet_id, gid="0"):
         df.columns = [
             's_no', 'supervisor_office', 'branch_name', 'clerk', 'case_no',
             'case_title', 'case_status', 'status_comment', 'pending_stage',
-            'court_name', 'dc_action_needed', 'dc_action_to_be_taken',
+            'court_name', 'dc_action_needed', 'what_action_needed_to_be_taken_by_dc',
             'reply_by', 'reply_filed', 'next_hearing_date', 'case_detail',
             'court_directions', 'direction_details', 'compliance_of_direction',
             'status_reply_required', 'status_reply_filed', 'case_documents',
@@ -32,10 +32,6 @@ def load_data(sheet_id, gid="0"):
         status_replacements = {'Pending': 'Pending', 'Decided': 'Decided', 'Dismissed': 'Decided', 'Disposed': 'Decided'}
         df['case_status'] = df['case_status'].replace(status_replacements).fillna('Not Specified')
         
-        # --- FOCUS ON PENDING CASES ---
-        # Filter out decided cases right after loading
-        df = df[df['case_status'] == 'Pending'].copy()
-
         df['court_name'] = df['court_name'].str.strip().str.title().fillna('Not Specified')
         court_replacements = {'Punjab And Haryana High Court': 'High Court', 'District Court Ludhiana': 'District Court', 'Supreme Court Of India': 'Supreme Court'}
         df['court_name'] = df['court_name'].replace(court_replacements)
@@ -66,22 +62,53 @@ st.markdown("An interactive dashboard focusing on pending and upcoming cases for
 st.markdown("---")
 
 if not df.empty:
+    # --- Create a DataFrame that ONLY contains pending cases for analysis ---
+    df_pending = df[df['case_status'] == 'Pending'].copy()
+
     # --- Key Metrics ---
     st.header("Overall Key Metrics")
-    total_pending_cases = df.shape[0]
-    upcoming_hearings_total = df[df['next_hearing_date'] > datetime.now()].shape[0]
+    total_pending_cases = df_pending.shape[0]
+    upcoming_hearings_total = df_pending[df_pending['next_hearing_date'] > datetime.now()].shape[0]
 
     col1, col2 = st.columns(2)
     col1.metric("Total Pending Cases", f"{total_pending_cases}")
     col2.metric("Upcoming Hearings", f"{upcoming_hearings_total}")
     st.markdown("---")
 
+    # --- Upcoming Tasks Section ---
+    st.header("Upcoming Tasks / Actions Required")
+    action_needed_df = df_pending[
+        (df_pending['dc_action_needed'].str.strip().str.title() == 'Yes') &
+        (df_pending['next_hearing_date'] > datetime.now())
+    ].copy()
+
+    if not action_needed_df.empty:
+        action_needed_df['next_hearing_date'] = action_needed_df['next_hearing_date'].dt.strftime('%d-%b-%Y')
+        st.dataframe(
+            action_needed_df[[
+                'case_title',
+                'supervisor_office',
+                'what_action_needed_to_be_taken_by_dc',
+                'next_hearing_date'
+            ]].rename(columns={
+                'case_title': 'Case Title',
+                'supervisor_office': 'Department',
+                'what_action_needed_to_be_taken_by_dc': 'Action Required',
+                'next_hearing_date': 'Next Hearing Date'
+            }),
+            use_container_width=True
+        )
+    else:
+        st.info("No upcoming cases currently require action from the DC's office.")
+    st.markdown("---")
+
+
     # --- Interactive Drill-Down Section ---
     st.header("Interactive Case Analysis")
 
     # Level 1: Cases by Court
     st.subheader("Level 1: Pending Case Distribution by Court")
-    cases_by_court = df['court_name'].value_counts().reset_index()
+    cases_by_court = df_pending['court_name'].value_counts().reset_index()
     cases_by_court.columns = ['Court', 'Number of Cases']
     fig_court_main = px.bar(
         cases_by_court, 
@@ -94,6 +121,7 @@ if not df.empty:
 
     # Create buttons for each court to enable drill-down
     st.write("Click a court to see the monthly breakdown:")
+    # Use the original unfiltered dataframe to get ALL court names
     court_names = df['court_name'].unique()
     court_cols = st.columns(len(court_names))
     for i, court_name in enumerate(court_names):
@@ -106,7 +134,7 @@ if not df.empty:
         st.markdown("---")
         st.subheader(f"Level 2: Monthly Breakdown for {st.session_state.selected_court}")
 
-        monthly_df = df[df['court_name'] == st.session_state.selected_court].copy()
+        monthly_df = df_pending[df_pending['court_name'] == st.session_state.selected_court].copy()
         monthly_counts = monthly_df['hearing_month'].value_counts().sort_index().reset_index()
         monthly_counts.columns = ['Month', 'Number of Cases']
         
@@ -136,9 +164,9 @@ if not df.empty:
         st.markdown("---")
         st.subheader(f"Level 3: Department Breakdown for {st.session_state.selected_court} in {st.session_state.selected_month}")
         
-        department_df = df[
-            (df['court_name'] == st.session_state.selected_court) & 
-            (df['hearing_month'] == st.session_state.selected_month)
+        department_df = df_pending[
+            (df_pending['court_name'] == st.session_state.selected_court) & 
+            (df_pending['hearing_month'] == st.session_state.selected_month)
         ].copy()
         department_counts = department_df['supervisor_office'].value_counts().reset_index()
         department_counts.columns = ['Department', 'Number of Cases']
@@ -167,8 +195,10 @@ if not df.empty:
         else:
             style = 'background-color: #FFCDD2'  # Light Red for past-due
         return [style] * len(row)
-
-    styled_df = df.style.apply(highlight_status, axis=1)
+    
+    # Rename column for better display in the final table
+    df_display = df_pending.rename(columns={'what_action_needed_to_be_taken_by_dc': 'Action Required'})
+    styled_df = df_display.style.apply(highlight_status, axis=1)
     st.dataframe(styled_df)
 
 else:
